@@ -1,0 +1,30 @@
+name: Update Supabase Player Stats
+
+on:
+  schedule:
+    - cron: "*/8 * * * *" # ⏰ runs every 8 minutes
+  workflow_dispatch: # allows manual run from GitHub Actions tab
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps
+
+      - name: Run update script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python playwright_smoketest.py
