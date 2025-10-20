@@ -2,7 +2,7 @@ name: Update Supabase Player Stats
 
 on:
   schedule:
-    - cron: "*/8 * * * *" # ⏰ runs every 8 minutes
+    - cron: "*/11 * * * *" # ⏰ runs every 8 minutes
   workflow_dispatch: # allows manual run from GitHub Actions tab
 
 jobs:
