@@ -22,7 +22,7 @@ async def verify_url(page):
     
 
 # get Total Score
-async def get_total_score(page,username):
+async def get_total_score(page):
     try:
 
         element = await page.wait_for_selector("text=Total score",timeout=10000)
@@ -75,7 +75,7 @@ async def get_score_verify_ofppt(page, username):
         ofppt = None
 
         if isFound:
-            score = await get_total_score(page,username)
+            score = await get_total_score(page)
             ofppt = await verify_ofppt(page)
             isFound = False
 
@@ -89,9 +89,6 @@ async def get_score_verify_ofppt(page, username):
 
 async def main():
     usernames = await supabasehmm.get_usernames()  
-
-
-    
 
     results = {}
     semaphore = asyncio.Semaphore(5)  
@@ -129,6 +126,7 @@ async def main():
                 user: info for user, info in results.items()
                 if not (info['score'] is None and info['ofppt'] is None)
             }
+        
 
         await supabasehmm.update_all_scores(results=filtered_results)
         

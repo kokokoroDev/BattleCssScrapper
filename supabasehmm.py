@@ -5,6 +5,8 @@ import os
 SUPABASE_URL= os.getenv("SUPABASE_URL")
 SUPABASE_KEY= os.getenv("SUPABASE_KEY")
 
+
+
 HEADERS = {
     "apikey": SUPABASE_KEY,
     "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -12,11 +14,9 @@ HEADERS = {
 }
 
 
-async def get_usernames(IsFiltered=False, WithScore=False):
+async def get_usernames(WithScore=False):
     async with httpx.AsyncClient() as client:
         base_url = f"{SUPABASE_URL}?select=cssbattle_profile_link,verified_ofppt"
-        if IsFiltered:
-            base_url += "&verified_ofppt=eq.false"
 
         if WithScore:
             base_url += ",score"
@@ -78,36 +78,38 @@ async def update_score(username, score):
 
 async def update_all_scores(results: dict):
 
-
-
     originale = await get_usernames(WithScore=True)
     
-
-
     changed_users = [
-    {**user, 'score': results[user['username']]['score']}
-    for user in originale
-    if user['score'] != results[user['username']]['score']
-]
-
-
+        {'username' : u['username'], 'score' : results[u['username']]['score']} 
+        for u in originale 
+        if u['username'] 
+        and results[u["username"]] 
+        and u['score'] != results[u["username"]]["score"]
+    ]
 
     tasks = [update_score(user['username'], user["score"]) for user in changed_users]
     return await asyncio.gather(*tasks)
 
 async def update_all_unverified_ofppt(results: dict):
 
-    False_Users = await get_usernames(IsFiltered=True)
-    false_usernames = {u["username"] for u in False_Users}
-    changed_users = [{"user" : u, "ofppt" : d.get("ofppt")} for u, d in results.items() if d.get("ofppt") is True and u in false_usernames and d.get('ofppt') == True]
+    All_Users = await get_usernames()
+
+    changed_users = [
+        {'user' : u['username'] , 
+         'ofppt' : prev['ofppt'] }
+         for u in All_Users 
+         if u['username'] and (prev := results.get(u['username']))
+         and u['verified_ofppt'] != prev['ofppt']
+    ]
+
 
     tasks = [update_unverified_ofppt(user['user'], user["ofppt"]) for user in changed_users]
     return await asyncio.gather(*tasks)
 
 
 async def main():
-    usernames = await get_usernames(WithScore=True)
-    print(usernames)
-
+    user =  await get_usernames()
+    print(user)
 if __name__ == "__main__":
     asyncio.run(main())
