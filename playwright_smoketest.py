@@ -121,7 +121,6 @@ async def main():
         await asyncio.gather(*tasks)
 
         await browser.close()
-
         filtered_results = {
                 user: info for user, info in results.items()
                 if not (info['score'] is None and info['ofppt'] is None)
@@ -129,7 +128,7 @@ async def main():
         
 
         await supabasehmm.update_all_scores(results=filtered_results)
-        
         await supabasehmm.update_all_unverified_ofppt(results=filtered_results)
+        
 
 asyncio.run(main())

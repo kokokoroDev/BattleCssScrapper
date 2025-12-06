@@ -5,8 +5,6 @@ import os
 SUPABASE_URL= os.getenv("SUPABASE_URL")
 SUPABASE_KEY= os.getenv("SUPABASE_KEY")
 
-
-
 HEADERS = {
     "apikey": SUPABASE_KEY,
     "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -78,17 +76,7 @@ async def update_score(username, score):
 
 async def update_all_scores(results: dict):
 
-    originale = await get_usernames(WithScore=True)
-    
-    changed_users = [
-        {'username' : u['username'], 'score' : results[u['username']]['score']} 
-        for u in originale 
-        if u['username'] 
-        and results[u["username"]] 
-        and u['score'] != results[u["username"]]["score"]
-    ]
-
-    tasks = [update_score(user['username'], user["score"]) for user in changed_users]
+    tasks = [update_score(username, data["score"]) for username , data in results.items()]
     return await asyncio.gather(*tasks)
 
 async def update_all_unverified_ofppt(results: dict):
