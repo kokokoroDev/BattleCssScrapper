@@ -21,6 +21,20 @@ async def verify_url(page):
         return False
     
 
+# get Global rank 
+async def get_global_rank(page):
+    try: 
+        element = await page.wait_for_selector("text=Global rank",timeout=10000)
+        if not element:
+            return None
+        parent = await element.evaluate_handle("el => el.closest('div')")
+        text = (await parent.inner_text()).strip()
+        rank_text = text.replace("Global rank", "").strip()
+        return int(rank_text) if rank_text else None
+    except Exception as e:
+        return None
+
+
 # get Total Score
 async def get_total_score(page):
     try:
@@ -65,7 +79,7 @@ async def verify_ofppt(page):
     
 
 
-async def get_score_verify_ofppt(page, username):
+async def get_score_verify_ofppt_global_rank(page, username):
     try:
         await page.goto(f"https://cssbattle.dev/player/{username}", wait_until="domcontentloaded", timeout=20000)
 
@@ -76,11 +90,13 @@ async def get_score_verify_ofppt(page, username):
 
         if isFound:
             score = await get_total_score(page)
+            global_rank = await get_global_rank(page)
             ofppt = await verify_ofppt(page)
             isFound = False
 
         
-        return score, ofppt
+        # return score, ofppt, global_rank
+        return global_rank, ofppt , score
 
     except Exception as e:
         print(f"Error Get score and verify ofppt: {e}")
@@ -101,16 +117,19 @@ async def main():
             async with semaphore:
                 page = await browser.new_page()
                 try:
-                    score, ofppt = await get_score_verify_ofppt(page, username)
+                    global_rank, ofppt, score = await get_score_verify_ofppt_global_rank(page, username)
                     results[username] = {
                         "score": score,
-                        "ofppt": ofppt
+                        "ofppt": ofppt,
+                        "rank": global_rank,
                     }
+                                        
                 except Exception as e:
                     print(f"Error fetching {username}: {e}")
                     results[username] = {
                         "score": None,
-                        "ofppt": None
+                        "ofppt": None,
+                        "rank": None,
                     }
                 finally:
                     await page.close()
@@ -123,12 +142,17 @@ async def main():
         await browser.close()
         filtered_results = {
                 user: info for user, info in results.items()
-                if not (info['score'] is None and info['ofppt'] is None)
+                if not (info['score'] is None and info['ofppt'] is None and info['rank'] is None)
             }
-        
+
+        filtered_results = {
+            user: info for user, info in results.items()
+        }
+
+        print(filtered_results)
 
         await supabasehmm.update_all_scores(results=filtered_results)
         await supabasehmm.update_all_unverified_ofppt(results=filtered_results)
-        
+        await supabasehmm.update_all_ranks(results=filtered_results)
 
 asyncio.run(main())

@@ -5,6 +5,8 @@ import os
 SUPABASE_URL= os.getenv("SUPABASE_URL")
 SUPABASE_KEY= os.getenv("SUPABASE_KEY")
 
+
+
 HEADERS = {
     "apikey": SUPABASE_KEY,
     "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -44,6 +46,20 @@ async def get_usernames(WithScore=False):
     
         
 
+async def update_rank(username, rank):
+    payload = {"global_rank": rank}
+    url = f"{SUPABASE_URL}?cssbattle_profile_link=eq.https://cssbattle.dev/player/{username}"
+
+    async with httpx.AsyncClient() as client:
+        r = await client.patch(url, headers=HEADERS, json=payload)
+        if r.status_code in (200, 201, 204):
+            return {"username": username, "global_rank": rank, "status": "updated"}
+        else:
+            try:
+                return r.json()
+            except:
+                return {"username": username, "status": "failed", "response": r.text}
+
 
 async def update_unverified_ofppt(username,is_verified):
 
@@ -73,6 +89,10 @@ async def update_score(username, score):
                 return r.json()
             except:
                 return {"username": username, "status": "failed", "response": r.text}
+
+async def update_all_ranks(results: dict):
+    tasks = [update_rank(username, data["rank"]) for username , data in results.items()]
+    return await asyncio.gather(*tasks)
 
 async def update_all_scores(results: dict):
 
