@@ -5,9 +5,16 @@ on:
     - cron: "*/5 * * * *" # ⏰ runs every 5 minutes
   workflow_dispatch: # allows manual run from GitHub Actions tab
 
+# Prevent concurrent executions - only run one instance at a time
+concurrency:
+  group: cssbattle-scraper
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
+    # Timeout after 20 minutes
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository

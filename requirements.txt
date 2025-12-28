@@ -1,4 +1,3 @@
-asyncio
-httpx
-playwright
-supabase
+playwright>=1.40.0
+httpx>=0.25.0
+python-dotenv>=1.0.0

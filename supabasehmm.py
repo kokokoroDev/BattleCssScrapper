@@ -1,11 +1,16 @@
 import httpx
 import asyncio
 import os
+from dotenv import load_dotenv
 
-SUPABASE_URL= os.getenv("SUPABASE_URL")
-SUPABASE_KEY= os.getenv("SUPABASE_KEY")
+# Load environment variables from .env file
+load_dotenv()
 
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
+# Assuming the table name is "players" - you may need to change this
+TABLE_NAME = "players"  # Change this to your actual table name
 
 HEADERS = {
     "apikey": SUPABASE_KEY,
@@ -16,55 +21,70 @@ HEADERS = {
 
 async def get_usernames(WithScore=False):
     async with httpx.AsyncClient() as client:
-        base_url = f"{SUPABASE_URL}?select=cssbattle_profile_link,verified_ofppt"
+        # Correct the URL to include the table name
+        base_url = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}?select=cssbattle_profile_link,verified_ofppt,api_user_css"
 
         if WithScore:
             base_url += ",score"
 
         r = await client.get(base_url, headers=HEADERS)
-        links = r.json()
+
+        # Check if request was successful
+        if r.status_code != 200:
+            return []
+
+        try:
+            links = r.json()
+        except Exception as e:
+            return []
+
+        # Handle case where response is an error object
+        if isinstance(links, dict) and 'error' in links:
+            return []
 
         if WithScore:
-            usernames = [
-                {
-                    "username": ((item.get('cssbattle_profile_link') or '').replace("https://cssbattle.dev/player/", "")).strip(),
-                    "verified_ofppt": item.get("verified_ofppt", False),
-                    "score": item.get("score", 0)
-                }
-                for item in links
-            ]
+            usernames = []
+            for item in links:
+                if isinstance(item, dict):
+                    # Fixed the URL replacement logic
+                    profile_link = item.get('cssbattle_profile_link', '')
+                    if profile_link:
+                        username = profile_link.replace(
+                            "https://cssbattle.dev/player/", "").strip()
+                    else:
+                        username = ""
+                    usernames.append({
+                        "username": username,
+                        "cssbattle_profile": profile_link,  # Changed to match what the script expects
+                        "verified_ofppt": item.get("verified_ofppt", False),
+                        "api_user_css": item.get("api_user_css", None),
+                        "score": item.get("score", 0)
+                    })
         else:
-            usernames = [
-                {
-                    "username": ((item.get('cssbattle_profile_link') or '').replace("https://cssbattle.dev/player/", "")).strip(),
-                    "verified_ofppt": item.get("verified_ofppt", False)
-                }
-                for item in links
-            ]
+            usernames = []
+            for item in links:
+                if isinstance(item, dict):
+                    # Fixed the URL replacement logic
+                    profile_link = item.get('cssbattle_profile_link', '')
+                    if profile_link:
+                        username = profile_link.replace(
+                            "https://cssbattle.dev/player/", "").strip()
+                    else:
+                        username = ""
+                    usernames.append({
+                        "username": username,
+                        "cssbattle_profile": profile_link,  # Changed to match what the script expects
+                        "verified_ofppt": item.get("verified_ofppt", False),
+                        "api_user_css": item.get("api_user_css", None)
+                    })
 
         return usernames
-    
-        
-
-async def update_rank(username, rank):
-    payload = {"global_rank": rank}
-    url = f"{SUPABASE_URL}?cssbattle_profile_link=eq.https://cssbattle.dev/player/{username}"
-
-    async with httpx.AsyncClient() as client:
-        r = await client.patch(url, headers=HEADERS, json=payload)
-        if r.status_code in (200, 201, 204):
-            return {"username": username, "global_rank": rank, "status": "updated"}
-        else:
-            try:
-                return r.json()
-            except:
-                return {"username": username, "status": "failed", "response": r.text}
 
 
-async def update_unverified_ofppt(username,is_verified):
-
+async def update_unverified_ofppt(username, is_verified):
     payload = {"verified_ofppt": is_verified}
-    url = f"{SUPABASE_URL}?cssbattle_profile_link=eq.https://cssbattle.dev/player/{username}"
+    # Fixed the URL - using proper Supabase REST API format
+    url = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}?cssbattle_profile_link=eq.https://cssbattle.dev/player/{username}"
 
     async with httpx.AsyncClient() as client:
         r = await client.patch(url, headers=HEADERS, json=payload)
@@ -76,9 +96,11 @@ async def update_unverified_ofppt(username,is_verified):
             except:
                 return {"username": username, "status": "failed", "response": r.text}
 
+
 async def update_score(username, score):
     payload = {"score": score}
-    url = f"{SUPABASE_URL}?cssbattle_profile_link=eq.https://cssbattle.dev/player/{username}"
+    # Fixed the URL - using proper Supabase REST API format
+    url = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}?cssbattle_profile_link=eq.https://cssbattle.dev/player/{username}"
 
     async with httpx.AsyncClient() as client:
         r = await client.patch(url, headers=HEADERS, json=payload)
@@ -90,34 +112,18 @@ async def update_score(username, score):
             except:
                 return {"username": username, "status": "failed", "response": r.text}
 
-async def update_all_ranks(results: dict):
-    tasks = [update_rank(username, data["rank"]) for username , data in results.items()]
-    return await asyncio.gather(*tasks)
 
-async def update_all_scores(results: dict):
+async def update_api_user_css(username, api_endpoint):
+    payload = {"api_user_css": api_endpoint}
+    # Fixed the URL - using proper Supabase REST API format
+    url = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}?cssbattle_profile_link=eq.https://cssbattle.dev/player/{username}"
 
-    tasks = [update_score(username, data["score"]) for username , data in results.items()]
-    return await asyncio.gather(*tasks)
-
-async def update_all_unverified_ofppt(results: dict):
-
-    All_Users = await get_usernames()
-
-    changed_users = [
-        {'user' : u['username'] , 
-         'ofppt' : prev['ofppt'] }
-         for u in All_Users 
-         if u['username'] and (prev := results.get(u['username']))
-         and u['verified_ofppt'] != prev['ofppt']
-    ]
-
-
-    tasks = [update_unverified_ofppt(user['user'], user["ofppt"]) for user in changed_users]
-    return await asyncio.gather(*tasks)
-
-
-async def main():
-    user =  await get_usernames()
-    print(user)
-if __name__ == "__main__":
-    asyncio.run(main())
+    async with httpx.AsyncClient() as client:
+        r = await client.patch(url, headers=HEADERS, json=payload)
+        if r.status_code in (200, 201, 204):
+            return {"username": username, "api_user_css": api_endpoint, "status": "updated"}
+        else:
+            try:
+                return r.json()
+            except:
+                return {"username": username, "status": "failed", "response": r.text}
